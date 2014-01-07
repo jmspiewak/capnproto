@@ -25,3 +25,11 @@
 $namespace("capnp::annotations");
 
 annotation namespace(file): Text;
+annotation accessors(file, struct, union, group): Accessors;
+annotation renameProperty(field): Text;
+
+enum Accessors {
+  methods    @0;
+  properties @1;
+  both       @2;
+}

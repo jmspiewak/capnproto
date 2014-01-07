@@ -14,6 +14,12 @@
 namespace capnp {
 namespace annotations {
 
+enum class Accessors: uint16_t {
+  METHODS,
+  PROPERTIES,
+  BOTH,
+};
+
 }  // namespace
 }  // namespace
 
@@ -23,10 +29,15 @@ namespace capnp {
 namespace schemas {
 
 extern const ::capnp::_::RawSchema s_b9c6f99ebf805f2c;
+extern const ::capnp::_::RawSchema s_9fb4a726e8a69da4;
+extern const ::capnp::_::RawSchema s_d761eb22a906f473;
+extern const ::capnp::_::RawSchema s_eb8c861c866bfd8c;
 
 }  // namespace schemas
 namespace _ {  // private
 
+CAPNP_DECLARE_ENUM(
+    ::capnp::annotations::Accessors, eb8c861c866bfd8c);
 
 }  // namespace _ (private)
 }  // namespace capnp

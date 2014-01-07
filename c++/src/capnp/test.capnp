@@ -28,6 +28,7 @@ using Cxx = import "c++.capnp";
 # Use a namespace likely to cause trouble if the generated code doesn't use fully-qualified
 # names for stuff in the capnproto namespace.
 $Cxx.namespace("capnproto_test::capnp::test");
+$Cxx.accessors(both);
 
 enum TestEnum {
   foo @0;
@@ -476,7 +477,7 @@ struct TestNewVersion {
 
 struct TestStructUnion {
   un @0! :union {
-    struct @1 :SomeStruct;
+    struct @1 :SomeStruct $Cxx.renameProperty("someStruct");
     object @2 :TestAnyPointer;
   }
 
