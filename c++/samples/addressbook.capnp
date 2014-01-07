@@ -25,6 +25,7 @@
 
 using Cxx = import "/capnp/c++.capnp";
 $Cxx.namespace("addressbook");
+$Cxx.accessors(both);
 
 struct Person {
   id @0 :UInt32;

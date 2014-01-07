@@ -110,6 +110,74 @@ void printAddressBook(int fd) {
   }
 }
 
+void propertiesWriteAddressBook(int fd) {
+  ::capnp::MallocMessageBuilder message;
+
+  AddressBook::Builder addressBook = message.initRoot<AddressBook>();
+  addressBook.people.init(2);
+
+  Person::Builder alice = addressBook.people[0];
+  alice.id = 123;
+  alice.name = "Alice";
+  alice.email = "alice@example.com";
+
+  alice.phones.init(1);
+  alice.phones[0].number = "555-1212";
+  alice.phones[0].type = Person::PhoneNumber::Type::MOBILE;
+  alice.employment->school = "MIT";
+
+  Person::Builder bob = addressBook.people[1];
+  bob.id = 456;
+  bob.name = "Bob";
+  bob.email = "bob@example.com";
+  auto bobPhones = bob.phones.init(2);
+  bobPhones[0].number = "555-4567";
+  bobPhones[0].type = Person::PhoneNumber::Type::HOME;
+  bobPhones[1].number = "555-7654";
+  bobPhones[1].type = Person::PhoneNumber::Type::WORK;
+  bob.employment->unemployed = ::capnp::VOID;
+
+  writePackedMessageToFd(fd, message);
+}
+
+void propertiesPrintAddressBook(int fd) {
+  ::capnp::PackedFdMessageReader message(fd);
+
+  AddressBook::Reader addressBook = message.getRoot<AddressBook>();
+
+  for (Person::Reader person : *addressBook.people) {
+    std::cout << person.name->cStr() << ": "
+              << person.email->cStr() << std::endl;
+    for (Person::PhoneNumber::Reader phone: *person.phones) {
+      const char* typeName = "UNKNOWN";
+      switch (phone.type) {
+        case Person::PhoneNumber::Type::MOBILE: typeName = "mobile"; break;
+        case Person::PhoneNumber::Type::HOME: typeName = "home"; break;
+        case Person::PhoneNumber::Type::WORK: typeName = "work"; break;
+      }
+      std::cout << "  " << typeName << " phone: "
+                << phone.number->cStr() << std::endl;
+    }
+    Person::Employment::Reader employment = *person.employment;
+    switch (employment.which()) {
+      case Person::Employment::UNEMPLOYED:
+        std::cout << "  unemployed" << std::endl;
+        break;
+      case Person::Employment::EMPLOYER:
+        std::cout << "  employer: "
+                  << employment.employer->cStr() << std::endl;
+        break;
+      case Person::Employment::SCHOOL:
+        std::cout << "  student at: "
+                  << employment.school->cStr() << std::endl;
+        break;
+      case Person::Employment::SELF_EMPLOYED:
+        std::cout << "  self-employed" << std::endl;
+        break;
+    }
+  }
+}
+
 #include "addressbook.capnp.h"
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
@@ -270,6 +338,10 @@ int main(int argc, char* argv[]) {
     dynamicWriteAddressBook(1, schema);
   } else if (strcmp(argv[1], "dread") == 0) {
     dynamicPrintMessage(0, schema);
+  } else if (strcmp(argv[1], "pwrite") == 0) {
+    propertiesWriteAddressBook(1);
+  } else if (strcmp(argv[1], "pread") == 0) {
+    propertiesPrintAddressBook(0);
   } else {
     std::cerr << "Invalid arg: " << argv[1] << std::endl;
     return 1;

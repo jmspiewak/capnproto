@@ -23,6 +23,9 @@
 
 @0x85150b117366d14b;
 
+using Cxx = import "/capnp/c++.capnp";
+$Cxx.accessors(both);
+
 interface Calculator {
   # A "simple" mathematical calculator, callable via RPC.
   #
