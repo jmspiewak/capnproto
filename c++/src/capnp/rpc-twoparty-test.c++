@@ -219,6 +219,93 @@ TEST(TwoPartyNetwork, Pipelining) {
   drainedPromise.wait(ioContext.waitScope);
 }
 
+TEST(TwoPartyNetwork, PipeliningWithProperties) {
+  auto ioContext = kj::setupAsyncIo();
+  int callCount = 0;
+  int reverseCallCount = 0;  // Calls back from server to client.
+
+  auto serverThread = runServer(*ioContext.provider, callCount);
+  TwoPartyVatNetwork network(*serverThread.pipe, rpc::twoparty::Side::CLIENT);
+  auto rpcClient = makeRpcClient(network);
+
+  bool disconnected = false;
+  bool drained = false;
+  kj::Promise<void> disconnectPromise = network.onDisconnect().then([&]() { disconnected = true; });
+  kj::Promise<void> drainedPromise = network.onDrained().then([&]() { drained = true; });
+
+  {
+    // Request the particular capability from the server.
+    auto client = getPersistentCap(rpcClient, rpc::twoparty::Side::SERVER,
+        test::TestSturdyRefObjectId::Tag::TEST_PIPELINE).castAs<test::TestPipeline>();
+
+    {
+      // Use the capability.
+      auto request = client.getCapRequest();
+      request.n = 234;
+      request.inCap = kj::heap<TestInterfaceImpl>(reverseCallCount);
+
+      auto promise = request.send();
+
+      auto pipelineRequest = promise.outBox->cap->fooRequest();
+      pipelineRequest.i = 321;
+      auto pipelinePromise = pipelineRequest.send();
+
+      auto pipelineRequest2 = promise.outBox->cap->castAs<test::TestExtends>().graultRequest();
+      auto pipelinePromise2 = pipelineRequest2.send();
+
+      promise = nullptr;  // Just to be annoying, drop the original promise.
+
+      EXPECT_EQ(0, callCount);
+      EXPECT_EQ(0, reverseCallCount);
+
+      auto response = pipelinePromise.wait(ioContext.waitScope);
+      EXPECT_EQ("bar", *response.x);
+
+      auto response2 = pipelinePromise2.wait(ioContext.waitScope);
+      checkTestMessage(response2);
+
+      EXPECT_EQ(3, callCount);
+      EXPECT_EQ(1, reverseCallCount);
+    }
+
+    EXPECT_FALSE(disconnected);
+    EXPECT_FALSE(drained);
+
+    // What if we disconnect?
+    serverThread.pipe->shutdownWrite();
+
+    // The other side should also disconnect.
+    disconnectPromise.wait(ioContext.waitScope);
+    EXPECT_FALSE(drained);
+
+    {
+      // Use the now-broken capability.
+      auto request = client.getCapRequest();
+      request.n = 234;
+      request.inCap = kj::heap<TestInterfaceImpl>(reverseCallCount);
+
+      auto promise = request.send();
+
+      auto pipelineRequest = promise.outBox->cap->fooRequest();
+      pipelineRequest.i = 321;
+      auto pipelinePromise = pipelineRequest.send();
+
+      auto pipelineRequest2 = promise.outBox->cap->castAs<test::TestExtends>().graultRequest();
+      auto pipelinePromise2 = pipelineRequest2.send();
+
+      EXPECT_ANY_THROW(pipelinePromise.wait(ioContext.waitScope));
+      EXPECT_ANY_THROW(pipelinePromise2.wait(ioContext.waitScope));
+
+      EXPECT_EQ(3, callCount);
+      EXPECT_EQ(1, reverseCallCount);
+    }
+
+    EXPECT_FALSE(drained);
+  }
+
+  drainedPromise.wait(ioContext.waitScope);
+}
+
 }  // namespace
 }  // namespace _
 }  // namespace capnp

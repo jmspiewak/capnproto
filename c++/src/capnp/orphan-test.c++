@@ -50,6 +50,26 @@ TEST(Orphans, Structs) {
   checkTestMessage(root.asReader().getStructField());
 }
 
+TEST(Orphans, StructsWithProperties) {
+  MallocMessageBuilder builder;
+  auto root = builder.initRoot<TestAllTypes>();
+
+  initTestMessage(root.structField.init());
+  EXPECT_TRUE(root.structField != nullptr);
+
+  Orphan<TestAllTypes> orphan = root.structField.disown();
+  EXPECT_FALSE(orphan == nullptr);
+
+  checkTestMessage(orphan.getReader());
+  checkTestMessage(orphan.get());
+  EXPECT_TRUE(root.structField == nullptr);
+
+  root.structField = kj::mv(orphan);
+  EXPECT_TRUE(orphan == nullptr);
+  EXPECT_TRUE(root.structField != nullptr);
+  checkTestMessage(*root.asReader().structField);
+}
+
 TEST(Orphans, Lists) {
   MallocMessageBuilder builder;
   auto root = builder.initRoot<TestAllTypes>();

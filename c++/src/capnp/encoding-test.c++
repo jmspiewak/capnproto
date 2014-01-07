@@ -157,6 +157,25 @@ TEST(Encoding, Unions) {
   EXPECT_DEBUG_ANY_THROW(root.getUnion0().getU0f0s1());
 }
 
+TEST(Encoding, UnionsWithProperties) {
+  MallocMessageBuilder builder;
+  TestUnion::Builder root = builder.getRoot<TestUnion>();
+
+  EXPECT_EQ(TestUnion::Union0::U0F0S0, root.union0->which());
+  EXPECT_EQ(VOID, (Void)root.union0->u0f0s0);
+  EXPECT_DEBUG_ANY_THROW(root.union0->u0f0s1);
+
+  root.union0->u0f0s1 = true;
+  EXPECT_EQ(TestUnion::Union0::U0F0S1, root.union0->which());
+  EXPECT_TRUE(root.union0->u0f0s1);
+  EXPECT_DEBUG_ANY_THROW(root.union0->u0f0s0);
+
+  root.union0->u0f0s8 = 123;
+  EXPECT_EQ(TestUnion::Union0::U0F0S8, root.union0->which());
+  EXPECT_EQ(123, (int)root.union0->u0f0s8);
+  EXPECT_DEBUG_ANY_THROW(root.union0->u0f0s1);
+}
+
 struct UnionState {
   uint discriminants[4];
   int dataOffset;
@@ -307,6 +326,35 @@ TEST(Encoding, UnnamedUnion) {
   EXPECT_EQ(2u, schema.getFieldByName("bar").getProto().getSlot().getOffset());
 }
 
+TEST(Encoding, UnnamedUnionWithProperties) {
+  MallocMessageBuilder builder;
+  auto root = builder.initRoot<test::TestUnnamedUnion>();
+  EXPECT_EQ(test::TestUnnamedUnion::FOO, root.which());
+
+  root.bar = 321;
+  EXPECT_EQ(test::TestUnnamedUnion::BAR, root.which());
+  EXPECT_EQ(test::TestUnnamedUnion::BAR, root.asReader().which());
+  EXPECT_EQ(321u, (uint)root.bar);
+  EXPECT_EQ(321u, (uint)root.asReader().bar);
+  EXPECT_DEBUG_ANY_THROW(root.foo);
+  EXPECT_DEBUG_ANY_THROW(root.asReader().foo);
+
+  root.foo = 123;
+  EXPECT_EQ(test::TestUnnamedUnion::FOO, root.which());
+  EXPECT_EQ(test::TestUnnamedUnion::FOO, root.asReader().which());
+  EXPECT_EQ(123u, (uint)root.foo);
+  EXPECT_EQ(123u, (uint)root.asReader().foo);
+  EXPECT_DEBUG_ANY_THROW(root.bar);
+  EXPECT_DEBUG_ANY_THROW(root.asReader().bar);
+
+  StructSchema schema = Schema::from<test::TestUnnamedUnion>();
+
+  // The discriminant is allocated just before allocating "bar".
+  EXPECT_EQ(2u, schema.getProto().getStruct().getDiscriminantOffset());
+  EXPECT_EQ(0u, schema.getFieldByName("foo").getProto().getSlot().getOffset());
+  EXPECT_EQ(2u, schema.getFieldByName("bar").getProto().getSlot().getOffset());
+}
+
 TEST(Encoding, Groups) {
   MallocMessageBuilder builder;
   auto root = builder.initRoot<test::TestGroups>();
@@ -342,6 +390,44 @@ TEST(Encoding, Groups) {
     EXPECT_EQ(34567890, baz.getCorge());
     EXPECT_EQ("bazqux", baz.getGrault());
     EXPECT_EQ("quxquux", baz.getGarply());
+  }
+}
+
+TEST(Encoding, GroupsWithProperties) {
+  MallocMessageBuilder builder;
+  auto root = builder.initRoot<test::TestGroups>();
+
+  {
+    auto foo = root.groups->foo.init();
+    foo.corge = 12345678;
+    foo.grault = 123456789012345ll;
+    foo.garply = "foobar";
+
+    EXPECT_EQ(12345678, (int)foo.corge);
+    EXPECT_EQ(123456789012345ll, (int64_t)foo.grault);
+    EXPECT_EQ("foobar", *foo.garply);
+  }
+
+  {
+    auto bar = root.groups->bar.init();
+    bar.corge = 23456789;
+    bar.grault = "barbaz";
+    bar.garply = 234567890123456ll;
+
+    EXPECT_EQ(23456789, (int)bar.corge);
+    EXPECT_EQ("barbaz", *bar.grault);
+    EXPECT_EQ(234567890123456ll, (int64_t)bar.garply);
+  }
+
+  {
+    auto baz = root.groups->baz.init();
+    baz.corge = 34567890;
+    baz.grault = "bazqux";
+    baz.garply = "quxquux";
+
+    EXPECT_EQ(34567890, (int)baz.corge);
+    EXPECT_EQ("bazqux", *baz.grault);
+    EXPECT_EQ("quxquux", *baz.garply);
   }
 }
 
