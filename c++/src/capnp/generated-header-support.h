@@ -135,6 +135,60 @@ inline kj::StringTree structString(StructReader reader) {
   return structString(reader, rawSchema<T>());
 }
 
+template <typename T>
+struct StructStringHelper {
+  static kj::StringTree stringify(typename T::Reader reader) {
+    return structString(reader._reader, rawSchema<T>());
+  }
+
+  static kj::StringTree stringify(typename T::Builder builder) {
+    return structString(builder._builder.asReader(), rawSchema<T>());
+  }
+};
+
+template <typename Friend>
+struct PrivateReader: private StructReader {
+  friend Friend;
+
+  template <typename T, Kind k>
+  friend struct ::capnp::ToDynamic_;
+  template <typename T, Kind k>
+  friend struct ::capnp::_::PointerHelpers;
+  template <typename T, Kind k>
+  friend struct ::capnp::List;
+  friend class ::capnp::MessageBuilder;
+  friend class ::capnp::Orphanage;
+  friend class StructStringHelper<FromReader<Friend>>;
+
+  PrivateReader() = default;
+  PrivateReader(const StructReader& r): StructReader(r) {}
+};
+
+template <typename Friend>
+struct PrivateBuilder: private StructBuilder {
+  friend Friend;
+
+  template <typename T, Kind k>
+  friend struct ::capnp::ToDynamic_;
+  friend class ::capnp::Orphanage;
+  friend class StructStringHelper<FromBuilder<Friend>>;
+
+  PrivateBuilder() = default;
+  PrivateBuilder(StructBuilder& b): StructBuilder(b) {}
+  PrivateBuilder(StructBuilder&& b): StructBuilder(b) {}
+};
+
+template <typename Friend>
+struct PrivatePipeline: private AnyPointer::Pipeline {
+  friend Friend;
+
+  template <typename T, Kind k>
+  friend struct ::capnp::ToDynamic_;
+
+  PrivatePipeline(decltype(nullptr)): AnyPointer::Pipeline(nullptr) {}
+  PrivatePipeline(AnyPointer::Pipeline&& p): AnyPointer::Pipeline(kj::mv(p)) {}
+};
+
 // TODO(cleanup):  Unify ConstStruct and ConstList.
 template <typename T>
 class ConstStruct {

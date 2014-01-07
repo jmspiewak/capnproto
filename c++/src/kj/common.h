@@ -255,6 +255,10 @@ template <bool b> using EnableIf = typename EnableIf_<b>::Type;
 //     template <typename T, typename = EnableIf<isValid<T>()>
 //     void func(T&& t);
 
+template <bool b, typename T, typename F> struct Conditional_ {typedef T Type;};
+template <typename T, typename F> struct Conditional_<false, T, F> {typedef F Type;};
+template <bool b, typename T, typename F> using Conditional = typename Conditional_<b, T, F>::Type;
+
 template <typename T>
 T instance() noexcept;
 // Like std::declval, but doesn't transform T into an rvalue reference.  If you want that, specify
